@@ -8,3 +8,7 @@ I also hope to be able to work with my team on our coding projects without havin
 Week 2: 9/21/2025
 
 This week, I was mainly using AI (Claude and ChatGPT) to debug my programs that I created for the week 2's exercise assignment. I didn't have too many bugs overall, but noticed that sometimes I would have a simple syntax error or my code is missing a crucial part. I realized that no matter how small a coding error is (syntax error, logic error, or compilation error), they still prevent my code from running - which also would lose me some points on the assignment.
+
+Week 3: 9/28/2025
+
+This week, I used AI (ChatGPT) to help me break down Python functions such as '.strip()', '.upper()', and elif statements. I only asked to be taught the fundamentals of those functions - with some coding examples - so that when I worked on the week 3 exercises, I would be able to understand how to do code the problems. I was also very nervous and confused when I ran into my first infinite loop because my VS Code was lagging and getting stuck constantly, and my whole laptop also became slow. However, it was a good lesson for me to learn.
