@@ -12,3 +12,7 @@ This week, I was mainly using AI (Claude and ChatGPT) to debug my programs that 
 Week 3: 9/28/2025
 
 This week, I used AI (ChatGPT) to help me break down Python functions such as '.strip()', '.upper()', and elif statements. I only asked to be taught the fundamentals of those functions - with some coding examples - so that when I worked on the week 3 exercises, I would be able to understand how to do code the problems. I was also very nervous and confused when I ran into my first infinite loop because my VS Code was lagging and getting stuck constantly, and my whole laptop also became slow. However, it was a good lesson for me to learn.
+
+Week 4: 10/5/2025
+
+This week, I used AI to teach me how to properly utilize the '_init_' method. I was shocked by how simple it was to initialize class objects, as soon as I figured out how to use '_init_'. I realized that assigning attributes is very similar to designing a house's interior, or packing your lunch, or planning your day -- because of how Python classes require attributes (values) to make it function, and it needs every single attribute to become fully operational.
