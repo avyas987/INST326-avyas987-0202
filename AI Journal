@@ -16,3 +16,7 @@ This week, I used AI (ChatGPT) to help me break down Python functions such as '.
 Week 4: 10/5/2025
 
 This week, I used AI to teach me how to properly utilize the '_init_' method. I was shocked by how simple it was to initialize class objects, as soon as I figured out how to use '_init_'. I realized that assigning attributes is very similar to designing a house's interior, or packing your lunch, or planning your day -- because of how Python classes require attributes (values) to make it function, and it needs every single attribute to become fully operational.
+
+Week 5: 10/12/2025
+
+This week, I asked AI (ChatGPT) to help me me understand what exactly is encapsulation, how to create proper getters and setters that create attributes for classes, and how to tie everything into coding problems. With the help of ChatGPT, I understood that getters and setters are one of the key parts of encapsulation (binding all the methods and attributes into a singular class). Another thing I comprehended is that by creating more and more classes (which have attributes and methods within them), I am bascially creating objects (hence the class name, "Object-Oriented Programming") that can be reused within different domains.
