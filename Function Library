@@ -1,12 +1,361 @@
-your-team-repo/
-├── README.md                    # Project overview and setup instructions
-├── src/                         # Source code directory
-│   ├── __init__.py             # Makes src a Python package
-│   ├── library_name.py         # Main function library
-│   └── utils.py                # Helper utilities (optional)
-├── docs/                        # Documentation directory
-│   ├── function_reference.md   # Detailed function documentation
-│   └── usage_examples.md       # Usage examples and tutorials
-├── examples/                    # Example usage scripts
-│   └── demo_script.py          # Demonstrates key functions
-└── requirements.txt 
+The 0202 Digital Team repo/
+
+README.md:
+Our group's (The 0202 Digital Team) goal is to build a researcher-friendly search interface that utilizes a search/browse tool that pulls from metadata-rich records. This will show how metadata fields (subject, creator, date, format) can enhance discovery through filters, faceted browsing, and visualization. The main reason why we are building this is because researchers often struggle to locate relevant materials within digital archives because search tools are either too simplistic (keyword-only) or too complex for non-experts to navigate. Many archives already use standardized metadata (such as Dublin Core), but users don’t always benefit from this rich descriptive information since most systems fail to leverage it effectively for discovery. Our endgame for this project is to prove that a metadata-driven interface makes archival research more efficient, accurate, and user-friendly, while also providing insights into how metadata quality and standards impact access.
+
+
+Code:
+
+from __future__ import annotations
+from typing import List, Dict, Any, Tuple, Iterable, Optional, Set
+from collections import Counter, defaultdict
+from datetime import datetime
+import csv, json, io, re
+import html
+
+# Helper utilities:
+
+_TOKEN_RE = re.compile(r'"[^"]+"|\S+')
+
+def _normalize_str(s: str) -> str:
+    return re.sub(r'\s+', ' ', s or '').strip()
+
+def _tokenize(query: str) -> List[str]:
+    # keeps quoted phrases intact
+    return [t.strip('"') if t.startswith('"') and t.endswith('"') else t
+            for t in _TOKEN_RE.findall(query or '')]
+
+def _parse_date(d: str) -> Optional[datetime]:
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m", "%Y/%m", "%Y"):
+        try: return datetime.strptime(d, fmt)
+        except ValueError: pass
+    return None
+
+def _levenshtein(a: str, b: str) -> int:
+    if a == b: return 0
+    if not a: return len(b)
+    if not b: return len(a)
+    prev = list(range(len(b)+1))
+    for i, ca in enumerate(a, 1):
+        curr = [i]
+        for j, cb in enumerate(b, 1):
+            curr.append(min(prev[j]+1, curr[j-1]+1, prev[j-1] + (ca != cb)))
+        prev = curr
+    return prev[-1]
+
+def _fingerprint_title(title: str) -> str:
+    t = title.lower()
+    t = re.sub(r'[^a-z0-9 ]+', ' ', t)
+    return re.sub(r'\s+', ' ', t).strip()
+
+# 1) parse the free-text query:
+
+def parse_query(q: str) -> Dict[str, Any]:
+    """
+    Parse a researcher-style query into structured parts.
+
+    Supports:
+      - phrases: "gene expression"
+      - field filters: author:smith year:2021 venue:"ACM DL" from:2019-01-01 to:2021
+      - +/- required/forbidden terms: +open -closed
+
+    Returns keys: terms, phrases, filters, required, forbidden, date_from, date_to
+    """
+    tokens = _tokenize(q)
+    terms, phrases, required, forbidden = [], [], [], []
+    filters: Dict[str, List[str]] = defaultdict(list)
+    date_from = date_to = None
+
+    for t in tokens:
+        if ":" in t and not t.startswith(("http://", "https://")):
+            k, v = t.split(":", 1)
+            v = v.strip('"')
+            if k in {"from","after","since"}:
+                date_from = _parse_date(v) or date_from
+            elif k in {"to","until","before"}:
+                date_to = _parse_date(v) or date_to
+            else:
+                filters[k.lower()].append(v)
+        elif t.startswith("+"):
+            required.append(t[1:])
+        elif t.startswith("-"):
+            forbidden.append(t[1:])
+        elif " " in t:
+            phrases.append(t)
+        else:
+            terms.append(t)
+    return {
+        "terms": terms,
+        "phrases": phrases,
+        "filters": dict(filters),
+        "required": required,
+        "forbidden": forbidden,
+        "date_from": date_from,
+        "date_to": date_to,
+    }
+
+# 2) normalize a single metadata record
+
+def normalize_metadata(rec: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize common bibliographic fields (title, authors, year, ids, dates).
+    Non-destructive: returns a new dict with added 'norm_*' keys where helpful.
+    """
+    r = dict(rec)
+    r["title"] = _normalize_str(r.get("title",""))
+    if "abstract" in r: r["abstract"] = _normalize_str(r.get("abstract",""))
+    # authors: accept list or string "Last, First; Last, First"
+    authors = r.get("authors")
+    if isinstance(authors, str):
+        parts = [a.strip() for a in re.split(r';|, and | and ', authors) if a.strip()]
+        r["authors"] = parts
+    elif not isinstance(authors, list):
+        r["authors"] = authors or []
+    # year
+    if "year" in r and isinstance(r["year"], str) and r["year"].isdigit():
+        r["year"] = int(r["year"])
+    # dates
+    for k in ("created_at","published_at","updated_at"):
+        if k in r and isinstance(r[k], str):
+            parsed = _parse_date(r[k])
+            if parsed: r[k] = parsed
+    # ids
+    if "doi" in r and isinstance(r["doi"], str):
+        r["doi"] = r["doi"].lower().replace("https://doi.org/","").strip()
+    if "url" in r and isinstance(r["url"], str):
+        r["url"] = r["url"].strip()
+    r["norm_title_fp"] = _fingerprint_title(r.get("title",""))
+    return r
+
+# 3) synonym/expansion utility
+
+def expand_synonyms(tokens: Iterable[str], thesaurus: Dict[str, List[str]]) -> List[str]:
+    """
+    Expand tokens with domain synonyms (e.g., 'LLM' -> ['LLM','large language model']).
+    """
+    out: List[str] = []
+    for t in tokens:
+        out.append(t)
+        out.extend(thesaurus.get(t.lower(), []))
+    return sorted(set(out))
+
+# 4) spelling suggestions
+
+def suggest_spell_corrections(query_tokens: Iterable[str], vocab: Set[str], max_distance: int = 2) -> Dict[str, str]:
+    """
+    For each OOV token, suggest the nearest vocab term within max_distance.
+    Returns {bad_token: suggestion} (only where a suggestion exists).
+    """
+    suggestions = {}
+    for t in query_tokens:
+        if t.lower() in vocab or not re.search(r'[a-zA-Z]', t): 
+            continue
+        best, best_d = None, max_distance + 1
+        for v in vocab:
+            d = _levenshtein(t.lower(), v)
+            if d < best_d:
+                best, best_d = v, d
+                if d == 1: break
+        if best and best_d <= max_distance:
+            suggestions[t] = best
+    return suggestions
+
+# 5) build backend boolean filter syntax
+
+def build_bool_filter(filters: Dict[str, List[str]], forbidden: List[str] = []) -> str:
+    """
+    Convert parsed filters + forbidden terms into a simple fielded boolean string.
+    Example: {"author":["smith","lee"], "venue":["CHI"]} -> '(author:smith OR author:lee) AND venue:CHI'
+    """
+    parts = []
+    for field, values in filters.items():
+        if not values: continue
+        if len(values) == 1:
+            parts.append(f'{field}:"{values[0]}"')
+        else:
+            joined = " OR ".join(f'{field}:"{v}"' for v in values)
+            parts.append(f"({joined})")
+    for t in forbidden:
+        parts.append(f'-text:"{t}"')
+    return " AND ".join(parts) if parts else ""
+
+# 6) apply field boosts to query terms
+
+def apply_field_boost(query_terms: List[str], boosts: Dict[str, float]) -> List[Tuple[str, str, float]]:
+    """
+    Decorate terms with (field, term, weight). Example boosts: {"title":3.0,"abstract":1.5,"fulltext":1.0}
+    """
+    out = []
+    for field, w in boosts.items():
+        for t in query_terms:
+            out.append((field, t, float(w)))
+    return out
+
+# 7) build a date range clause
+
+def build_date_range(start: Optional[datetime], end: Optional[datetime], field: str = "published_at") -> Optional[Tuple[str, str]]:
+    """
+    Return (field, range_str) like ('published_at','[2019-01-01 TO 2021-12-31]') or None.
+    """
+    if not start and not end: return None
+    s = (start or datetime.min).strftime("%Y-%m-%d")
+    e = (end or datetime.max).strftime("%Y-%m-%d")
+    return field, f"[{s} TO {e}]"
+
+# 8) simple scoring for ranking
+
+def rank_records(records: List[Dict[str, Any]], query_terms: List[str], field_weights: Dict[str, float]) -> List[Dict[str, Any]]:
+    """
+    Lightweight ranker: counts term hits per field with weights. Adds '_score' and returns sorted list.
+    """
+    qset = {t.lower() for t in query_terms}
+    ranked = []
+    for r in records:
+        score = 0.0
+        for field, w in field_weights.items():
+            text = (r.get(field) or "")
+            if isinstance(text, list): text = " ".join(map(str, text))
+            txt = str(text).lower()
+            hits = sum(1 for t in qset if t in txt)
+            score += w * hits
+        rr = dict(r)
+        rr["_score"] = score
+        ranked.append(rr)
+    return sorted(ranked, key=lambda x: x["_score"], reverse=True)
+
+# 9) snippet/highlight generator
+
+def generate_highlights(text: str, terms: Iterable[str], window: int = 60, max_snips: int = 3) -> List[str]:
+    """
+    Return up to max_snips short snippets with <mark>term</mark> around matches.
+    """
+    if not text: return []
+    txt = html.escape(text)
+    low = txt.lower()
+    snippets = []
+    for t in terms:
+        t_esc = html.escape(t)
+        i = 0
+        while len(snippets) < max_snips:
+            idx = low.find(t.lower(), i)
+            if idx == -1: break
+            start = max(0, idx - window)
+            end = min(len(txt), idx + len(t) + window)
+            chunk = txt[start:end]
+            chunk = re.sub(re.escape(t_esc), f"<mark>{t_esc}</mark>", chunk, flags=re.IGNORECASE)
+            snippets.append(("..." if start>0 else "") + chunk + ("..." if end < len(txt) else ""))
+            i = idx + len(t)
+    # de-dupe while preserving order
+    seen, unique = set(), []
+    for s in snippets:
+        if s not in seen:
+            seen.add(s); unique.append(s)
+    return unique[:max_snips]
+
+# 10) cursor pagination
+
+def paginate_cursor(items: List[Any], page_size: int, cursor: Optional[int]) -> Tuple[List[Any], Optional[int]]:
+    """
+    Return (page, next_cursor). Cursor is an integer index (or None to start).
+    """
+    start = cursor or 0
+    end = min(len(items), start + max(1, page_size))
+    page = items[start:end]
+    next_cur = end if end < len(items) else None
+    return page, next_cur
+
+# 11) deduplicate records
+
+def dedupe_records(records: List[Dict[str, Any]], keys: Tuple[str, ...] = ("doi","norm_title_fp","year")) -> List[Dict[str, Any]]:
+    """
+    De-duplicate by priority keys; falls back to title fingerprint+year.
+    """
+    seen = set()
+    out = []
+    for r in records:
+        r = normalize_metadata(r)
+        sig = tuple((r.get(k) or "").lower() if isinstance(r.get(k), str) else r.get(k) for k in keys)
+        if sig not in seen:
+            seen.add(sig)
+            out.append(r)
+    return out
+
+# 12) facet counts
+
+def group_facets(records: List[Dict[str, Any]], field: str, top_k: int = 20) -> List[Tuple[str, int]]:
+    """
+    Count values for a facet field (e.g., 'year', 'venue', 'author') and return top_k.
+    """
+    c = Counter()
+    for r in records:
+        v = r.get(field)
+        if v is None: continue
+        if isinstance(v, list):
+            for x in v: c[str(x)] += 1
+        else:
+            c[str(v)] += 1
+    return c.most_common(top_k)
+
+# 13) identifier resolution
+
+def resolve_identifiers(rec: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extract/normalize common identifiers (DOI, ISBN-10/13, arXiv) into 'ids' dict.
+    """
+    r = normalize_metadata(rec)
+    ids = {}
+    t_all = " ".join(map(str, [r.get("title",""), r.get("abstract",""), r.get("notes","")]))
+    # DOI patterns
+    m = re.search(r'(10\.\d{4,9}/[-._;()/:A-Z0-9]+)', t_all, re.I)
+    if r.get("doi"): ids["doi"] = r["doi"]
+    elif m: ids["doi"] = m.group(1).lower()
+    # arXiv
+    m = re.search(r'arxiv:\s*([0-9]{4}\.[0-9]{4,5})(v\d+)?', t_all, re.I)
+    if m: ids["arxiv"] = m.group(1).lower()
+    # ISBN (naive)
+    m = re.search(r'\b97[89][-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?\d\b', t_all)
+    if m: ids["isbn"] = re.sub(r'[-\s]', '', m.group(0))
+    r["ids"] = ids
+    return r
+
+# 14) quick & dirty citation formatting
+
+def format_citation(rec: Dict[str, Any], style: str = "apa") -> str:
+    """
+    Return a simple human-readable citation string (APA-like by default).
+    """
+    r = normalize_metadata(rec)
+    authors = r.get("authors") or []
+    year = r.get("year") or ""
+    title = r.get("title") or ""
+    venue = r.get("venue") or r.get("journal") or r.get("booktitle") or ""
+    doi = r.get("doi") or (r.get("ids", {}).get("doi") if isinstance(r.get("ids"), dict) else "")
+    auth_part = "; ".join(authors) if authors else ""
+    base = f"{auth_part} ({year}). {title}."
+    if venue: base += f" {venue}."
+    if doi: base += f" https://doi.org/{doi}"
+    return _normalize_str(base)
+
+# 15) export results
+
+def export_results(records: List[Dict[str, Any]], fmt: str = "json") -> str:
+    """
+    Export records as 'json', 'ndjson', or 'csv' (flattening top-level fields only).
+    Returns the serialized string.
+    """
+    fmt = fmt.lower()
+    if fmt == "json":
+        return json.dumps(records, default=str, ensure_ascii=False, indent=2)
+    if fmt == "ndjson":
+        return "\n".join(json.dumps(r, default=str, ensure_ascii=False) for r in records)
+    if fmt == "csv":
+        # gather union of top-level keys
+        fieldnames = sorted({k for r in records for k in r.keys()})
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=fieldnames)
+        w.writeheader()
+        for r in records:
+            row = {k: (", ".join(r[k]) if isinstance(r.get(k), list) else r.get(k)) for k in fieldnames}
+            w.writerow(row)
+        return buf.getvalue()
+    raise ValueError("fmt must be one of: json, ndjson, csv")
