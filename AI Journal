@@ -17,3 +17,7 @@ This week, I used AI to teach me how to properly utilize the '_init_' method. I 
 Week 5: 10/12/2025
 
 This week, I asked AI (ChatGPT) to help me me understand what exactly is encapsulation, how to create proper getters and setters that create attributes for classes, and how to tie everything into coding problems. With the help of ChatGPT, I understood that getters and setters are one of the key parts of encapsulation (binding all the methods and attributes into a singular class). Another thing I comprehended is that by creating more and more classes (which have attributes and methods within them), I am bascially creating objects (hence the class name, "Object-Oriented Programming") that can be reused within different domains.
+
+Week 6: 10/26/2025
+
+This week, I utilized AI by helping me further understand class methods and static methods, and how to properly apply them into my coding projects. Since Python is a new coding language that I am learning, I have never needed to use the '@' keyword (for '@classmethod' and '@staticmethod'). As a result, I had to ask ChatGPT and Gemini what the purpose was for including the the '@' symbol in the code. But, I am grateful to do so because now I have expanded my knowledge on not just Python but on every coding language.
