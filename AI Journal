@@ -25,3 +25,7 @@ This week, I utilized AI by helping me further understand class methods and stat
 Week 7: 11/02/2025
 
 This week, I asked Claude to help me understand how to incorporate starter helper methods into seperate functions. I was pretty amazed by how straightforward the process was, since all I had to do was call the helper method, put it next to the main function, and tailor its code so that it solves the issue at hand. The one and biggest downside that I learned about this topic (through Claude) was that the helper methods could only be utilized inside of one class - so basically I cannot call helper methods across multiple Python files.
+
+Week 8: 11/09/2025
+
+This week, I used ChatGPT to teach me the importance and proper implementation of inheritance for Python. What ChatGPT explained to me was that inheritance is a fundamental concept in object-oriented programming that allows a class to inherit attributes and methods from another class. Using this knowledge, I was able to understand how to do this week's exercises a lot more clearer because instead of recreating the same methods for each and every class, I can inherit the same methods from other classes into one class - hence saving a lot more time while coding.
