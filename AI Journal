@@ -29,3 +29,7 @@ This week, I asked Claude to help me understand how to incorporate starter helpe
 Week 8: 11/09/2025
 
 This week, I used ChatGPT to teach me the importance and proper implementation of inheritance for Python. What ChatGPT explained to me was that inheritance is a fundamental concept in object-oriented programming that allows a class to inherit attributes and methods from another class. Using this knowledge, I was able to understand how to do this week's exercises a lot more clearer because instead of recreating the same methods for each and every class, I can inherit the same methods from other classes into one class - hence saving a lot more time while coding.
+
+Week 9: 11/16/2025
+
+This week, I asked Claude questions on how to properly edit abstract classes, without altering the code of other methods and classes. At first I was confused because I thought I just had to type my code into the main abstract class interface. But, then I realized that I just needed to enter the code on seperate documents but for the same class (that way I am still editing the same class but without messing up any of the main abstract code).
