@@ -37,3 +37,7 @@ This week, I asked Claude questions on how to properly edit abstract classes, wi
 Week 10: 11/23/2025
 
 This week, I asked Claude to explain what are data models, properties, and special methods - in terms of Python coding. I learned that they are part of Python’s object model — the internal rules and protocols that define how objects behave and interact. Claude also taught me the purposes of each of them such as for data models, it allows you to make your own classes behave like built-in types by implementing certain special methods. For properties, it allows you to define getter, setter, and deleter methods while still using attribute syntax.
+
+Week 12: 12/7/2025
+
+This week, I was working on Project 04 with my team members. Since one of the requirements of this project is to create a video presentation, I asked ChatGPT to come up with adequate talking lines for me and my team members to say. I realized that a lot of ChatGPT's answers are very vague and not too useful when I have to explain how to describe every line of our code, using technical Python words. However, ChatGPT was able to provide me with a helpful outline that gives me a good start when preparing my talking points for the video.
